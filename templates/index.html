@@ -1,0 +1,474 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cloud Chaos Lab</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Cloud Chaos Lab</h1>
+      <p class="muted">
+        Beginner-friendly demo: launch an EC2 instance, trigger chaos (stop/reboot), monitor CPU + status checks, and auto-recover.
+      </p>
+
+      <div
+        id="awsBanner"
+        class="banner {% if aws_ui.credentials_ok %}ok{% else %}err{% endif %}"
+        role="status"
+      >
+        <span id="awsBannerText">
+          {% if aws_ui.credentials_ok %}
+            AWS credentials OK — region {{ aws_ui.region }}.
+          {% else %}
+            AWS setup required: {{ aws_ui.credentials_error or "Unknown error" }} (configure credentials and region, then refresh.)
+          {% endif %}
+        </span>
+      </div>
+
+      <div class="grid">
+        <section class="card">
+          <h2>Instance</h2>
+
+          <div class="row">
+            <div class="label">AWS region</div>
+            <div class="value" id="awsRegionDisplay">{{ snapshot.aws_region or aws_ui.region }}</div>
+          </div>
+          <div class="row">
+            <div class="label">Instance ID</div>
+            <div class="value" id="instanceId">{{ snapshot.instance_id or "" }}</div>
+          </div>
+          <div class="row">
+            <div class="label">State</div>
+            <div class="value" id="instanceState">{{ snapshot.instance_state or "Unknown" }}</div>
+          </div>
+          <div class="row">
+            <div class="label">Auto Recovery</div>
+            <div class="value" id="autoRecovery">{{ "On" if auto_recovery_enabled else "Off" }}</div>
+          </div>
+
+          <div class="divider"></div>
+
+          <h3>Launch EC2</h3>
+          <p class="muted small">
+            Uses the latest Amazon Linux AMI for your region (no manual AMI). Default region is <code>ap-south-1</code> unless you set <code>AWS_REGION</code> or launch in another region below.
+          </p>
+          <form id="launchForm" class="form">
+            <label>
+              Instance type
+              <input name="instance_type" type="text" value="{{ defaults.INSTANCE_TYPE }}" placeholder="t3.micro" />
+            </label>
+            <label>
+              Security group IDs (comma-separated)
+              <input name="security_group_ids" type="text" placeholder="{{ defaults.SECURITY_GROUP_IDS or 'sg-aaaa' }}" required />
+            </label>
+            <label>
+              Region (optional)
+              <input name="region" type="text" placeholder="Leave empty to use banner region" />
+            </label>
+            <button type="submit" class="primary">Launch EC2</button>
+          </form>
+
+          <div class="divider"></div>
+
+          <h3>Start / Stop / Reboot</h3>
+          <div class="buttonRow">
+            <button class="control" data-action="start">Start</button>
+            <button class="control" data-action="stop">Stop</button>
+            <button class="control" data-action="reboot">Reboot</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Chaos + Monitoring</h2>
+          <div class="divider"></div>
+          <h3>Chaos Engine</h3>
+          <button id="chaosBtn" class="danger">Trigger Chaos</button>
+          <div class="muted small" id="chaosStatus"></div>
+
+          <div class="divider"></div>
+          <h3>Metrics</h3>
+          <div class="row">
+            <div class="label">CPU Utilization</div>
+            <div class="value" id="cpuLatest">
+              {% if snapshot.cpu_latest_percent is not none %}
+                {{ '%.2f'|format(snapshot.cpu_latest_percent) }}%
+              {% else %}
+                N/A
+              {% endif %}
+            </div>
+          </div>
+          <div class="row">
+            <div class="label">Status Check (System failed)</div>
+            <div class="value" id="statusSys">
+              {% if snapshot.status_check_failed_system is not none %}
+                {{ snapshot.status_check_failed_system }}
+              {% else %}
+                N/A
+              {% endif %}
+            </div>
+          </div>
+          <div class="row">
+            <div class="label">Status Check (Instance failed)</div>
+            <div class="value" id="statusInst">
+              {% if snapshot.status_check_failed_instance is not none %}
+                {{ snapshot.status_check_failed_instance }}
+              {% else %}
+                N/A
+              {% endif %}
+            </div>
+          </div>
+          <div class="row">
+            <div class="label">Status OK</div>
+            <div class="value" id="statusOk">
+              {% if snapshot.status_ok is not none %}
+                {{ "Yes" if snapshot.status_ok else "No" }}
+              {% else %}
+                N/A
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="label">Recovery Time</div>
+            <div class="value" id="recoveryTimeText">
+              {% if snapshot.recovery_time_seconds is not none %}
+                Recovery Time: {{ snapshot.recovery_time_seconds }} seconds
+              {% else %}
+                Recovery Time: N/A
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="row" id="metricsErrorRow" {% if not snapshot.aws_error %}style="display: none;"{% endif %}>
+            <div class="label">Metrics note</div>
+            <div class="value" style="font-weight: 400; font-size: 13px; text-align: left;" id="metricsAwsError">{{ snapshot.aws_error or "" }}</div>
+          </div>
+
+          <div class="divider"></div>
+          <div class="muted small">
+            CPU sparkline (recent samples). Alert threshold: <b>{{ high_cpu_threshold }}</b>%
+          </div>
+          <div class="sparkWrap">
+            <svg id="cpuSpark" class="spark" width="320" height="60" viewBox="0 0 320 60"></svg>
+          </div>
+          <div class="muted small" id="metricsUpdated">{{ snapshot.monitor_last_update }}</div>
+
+          <div class="divider"></div>
+
+          <h3>SNS Alerts</h3>
+          <div class="muted small">Creates an SNS topic + email subscription. (You may need to confirm the subscription email.)</div>
+          <form id="snsSetupForm" class="form snsForm">
+            <label>
+              Alert Email
+              <input name="email" type="email" placeholder="you@example.com" value="{{ alert_email_default or '' }}" />
+            </label>
+            <button type="submit" class="primary">Setup SNS</button>
+          </form>
+          <div class="muted small" id="snsSetupStatus"></div>
+        </section>
+
+        <section class="card full">
+          <h2>Alert Log</h2>
+          <div class="muted small" id="alertsUpdated"></div>
+          <div id="alertLog" class="alertLog" role="log"></div>
+        </section>
+
+        <section class="card full">
+          <h2>Failure / Recovery Events</h2>
+          <div class="muted small">Failure events start the timer; recovery events end it.</div>
+          <div class="eventsSplit">
+            <div>
+              <h3>Failure Events</h3>
+              <div id="failureEventLog" class="eventLog" role="log"></div>
+            </div>
+            <div>
+              <h3>Recovery Events</h3>
+              <div id="recoveryEventLog" class="eventLog" role="log"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      const instanceIdEl = document.getElementById("instanceId");
+      const instanceStateEl = document.getElementById("instanceState");
+      const autoRecoveryEl = document.getElementById("autoRecovery");
+      const cpuLatestEl = document.getElementById("cpuLatest");
+      const statusSysEl = document.getElementById("statusSys");
+      const statusInstEl = document.getElementById("statusInst");
+      const statusOkEl = document.getElementById("statusOk");
+      const recoveryTimeTextEl = document.getElementById("recoveryTimeText");
+      const cpuSparkEl = document.getElementById("cpuSpark");
+      const metricsUpdatedEl = document.getElementById("metricsUpdated");
+      const alertLogEl = document.getElementById("alertLog");
+      const alertsUpdatedEl = document.getElementById("alertsUpdated");
+      const failureEventLogEl = document.getElementById("failureEventLog");
+      const recoveryEventLogEl = document.getElementById("recoveryEventLog");
+      const awsBannerEl = document.getElementById("awsBanner");
+      const awsBannerTextEl = document.getElementById("awsBannerText");
+      const awsRegionDisplayEl = document.getElementById("awsRegionDisplay");
+      const metricsErrorRowEl = document.getElementById("metricsErrorRow");
+      const metricsAwsErrorEl = document.getElementById("metricsAwsError");
+
+      function escapeHtml(s) {
+        return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+      }
+
+      function sparkline(values) {
+        // Very small, dependency-free sparkline.
+        cpuSparkEl.innerHTML = "";
+        if (!values || values.length < 2) return;
+
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const range = (max - min) || 1;
+
+        const w = 320;
+        const h = 60;
+        const pad = 6;
+        const innerW = w - pad * 2;
+        const innerH = h - pad * 2;
+
+        const points = values.map((v, i) => {
+          const x = pad + (i / (values.length - 1)) * innerW;
+          const y = pad + (1 - (v - min) / range) * innerH;
+          return [x, y];
+        });
+
+        const d = points.map((p, i) => (i === 0 ? "M " : "L ") + p[0].toFixed(2) + " " + p[1].toFixed(2)).join(" ");
+
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", d);
+        path.setAttribute("fill", "none");
+        path.setAttribute("stroke", "#2563eb");
+        path.setAttribute("stroke-width", "2");
+
+        cpuSparkEl.appendChild(path);
+      }
+
+      async function apiJson(url, opts) {
+        const res = await fetch(url, opts);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const msg = data.error || data.message || ("HTTP " + res.status);
+          throw new Error(msg);
+        }
+        return data;
+      }
+
+      function updateSnapshot(snapshot) {
+        instanceIdEl.textContent = snapshot.instance_id || "";
+        instanceStateEl.textContent = snapshot.instance_state || "Unknown";
+
+        if (snapshot.aws_region) {
+          awsRegionDisplayEl.textContent = snapshot.aws_region;
+        }
+
+        if (snapshot.aws_error) {
+          metricsErrorRowEl.style.display = "";
+          metricsAwsErrorEl.textContent = snapshot.aws_error;
+        } else {
+          metricsErrorRowEl.style.display = "none";
+          metricsAwsErrorEl.textContent = "";
+        }
+
+        if (snapshot.cpu_latest_percent !== null && snapshot.cpu_latest_percent !== undefined) {
+          cpuLatestEl.textContent = Number(snapshot.cpu_latest_percent).toFixed(2) + "%";
+        } else {
+          cpuLatestEl.textContent = "N/A";
+        }
+
+        statusSysEl.textContent = snapshot.status_check_failed_system ?? "N/A";
+        statusInstEl.textContent = snapshot.status_check_failed_instance ?? "N/A";
+
+        if (snapshot.status_ok === true) statusOkEl.textContent = "Yes";
+        else if (snapshot.status_ok === false) statusOkEl.textContent = "No";
+        else statusOkEl.textContent = "N/A";
+
+        if (snapshot.recovery_time_seconds !== null && snapshot.recovery_time_seconds !== undefined) {
+          recoveryTimeTextEl.textContent = "Recovery Time: " + Number(snapshot.recovery_time_seconds) + " seconds";
+        } else {
+          recoveryTimeTextEl.textContent = "Recovery Time: N/A";
+        }
+
+        sparkline(snapshot.cpu_series || []);
+        metricsUpdatedEl.textContent = snapshot.monitor_last_update || "";
+      }
+
+      async function refreshMetrics() {
+        try {
+          const snap = await apiJson("/api/metrics");
+          updateSnapshot(snap);
+        } catch (e) {
+          metricsErrorRowEl.style.display = "";
+          metricsAwsErrorEl.textContent = "Could not load metrics: " + (e && e.message ? e.message : String(e));
+        }
+      }
+
+      async function refreshAwsHealth() {
+        try {
+          const h = await apiJson("/api/health");
+          if (h.credentials_ok) {
+            awsBannerEl.className = "banner ok";
+            awsBannerTextEl.textContent =
+              "AWS credentials OK — region " + (h.region || "") + ".";
+          } else {
+            awsBannerEl.className = "banner err";
+            awsBannerTextEl.textContent =
+              "AWS setup required: " +
+              (h.error || "Unknown error") +
+              " (configure credentials and region.)";
+          }
+          if (h.region) awsRegionDisplayEl.textContent = h.region;
+        } catch (e) {
+          awsBannerEl.className = "banner warn";
+          awsBannerTextEl.textContent =
+            "Could not check AWS status: " + (e && e.message ? e.message : String(e));
+        }
+      }
+
+      async function refreshAlerts() {
+        try {
+          const data = await apiJson("/api/alerts");
+          alertsUpdatedEl.textContent = "Updated: " + new Date().toISOString();
+          const list = data.alerts || [];
+          alertLogEl.innerHTML = list
+            .slice()
+            .reverse()
+            .map(a => {
+              const meta = a.meta ? (" " + JSON.stringify(a.meta)) : "";
+              return `<div class="alertItem"><div class="alertTop">${escapeHtml(a.ts)} - ${escapeHtml(a.kind)}</div><div class="alertMsg">${escapeHtml(a.message)}${meta ? escapeHtml(meta) : ""}</div></div>`;
+            })
+            .join("");
+        } catch (e) {
+          console.log("alerts refresh failed:", e);
+        }
+      }
+
+      async function refreshRecoveryEvents() {
+        try {
+          const data = await apiJson("/api/recovery/events");
+          const failures = data.failure_events || [];
+          const recoveries = data.recovery_events || [];
+
+          failureEventLogEl.innerHTML = failures
+            .slice()
+            .reverse()
+            .map(evt => {
+              const meta = evt.meta ? (" " + JSON.stringify(evt.meta)) : "";
+              const attempt = evt.attempt_id !== null && evt.attempt_id !== undefined ? (" attempt#" + evt.attempt_id) : "";
+              return `<div class="alertItem"><div class="alertTop">${escapeHtml(evt.ts)} - ${escapeHtml(evt.kind)}${escapeHtml(attempt)}</div><div class="alertMsg">${escapeHtml(evt.message)}${meta ? escapeHtml(meta) : ""}</div></div>`;
+            })
+            .join("");
+
+          recoveryEventLogEl.innerHTML = recoveries
+            .slice()
+            .reverse()
+            .map(evt => {
+              const meta = evt.meta ? (" " + JSON.stringify(evt.meta)) : "";
+              const attempt = evt.attempt_id !== null && evt.attempt_id !== undefined ? (" attempt#" + evt.attempt_id) : "";
+              return `<div class="alertItem"><div class="alertTop">${escapeHtml(evt.ts)} - ${escapeHtml(evt.kind)}${escapeHtml(attempt)}</div><div class="alertMsg">${escapeHtml(evt.message)}${meta ? escapeHtml(meta) : ""}</div></div>`;
+            })
+            .join("");
+        } catch (e) {
+          console.log("recovery events refresh failed:", e);
+        }
+      }
+
+      document.getElementById("launchForm").addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        const form = ev.target;
+        const fd = new FormData(form);
+
+        const payload = {
+          instance_type: fd.get("instance_type"),
+          security_group_ids: fd.get("security_group_ids"),
+          region: (fd.get("region") || "").trim()
+        };
+        if (!payload.region) delete payload.region;
+
+        try {
+          const resp = await apiJson("/api/ec2/launch", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          document.getElementById("chaosStatus").textContent =
+            "Launched " + resp.instance_id + " in " + (resp.region || "") + " (AMI " + (resp.ami_id || "") + ").";
+          await refreshAwsHealth();
+          await refreshMetrics();
+        } catch (e) {
+          alert("Launch failed: " + e.message);
+        }
+      });
+
+      document.querySelectorAll(".control").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const action = btn.getAttribute("data-action");
+          const instance_id = instanceIdEl.textContent.trim();
+          const body = { action };
+          if (instance_id) body.instance_id = instance_id;
+          try {
+            const resp = await apiJson("/api/ec2/control", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body)
+            });
+            document.getElementById("chaosStatus").textContent = "Control OK: " + action;
+            await refreshMetrics();
+          } catch (e) {
+            alert("Control failed: " + e.message);
+          }
+        });
+      });
+
+      document.getElementById("chaosBtn").addEventListener("click", async () => {
+        const instance_id = instanceIdEl.textContent.trim();
+        const body = {};
+        if (instance_id) body.instance_id = instance_id;
+        try {
+          const resp = await apiJson("/api/chaos", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          });
+          document.getElementById("chaosStatus").textContent = "Chaos: " + resp.chaos_action + " (check alerts + recovery).";
+          await refreshMetrics();
+        } catch (e) {
+          alert("Chaos trigger failed: " + e.message);
+        }
+      });
+
+      document.getElementById("snsSetupForm").addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        const form = ev.target;
+        const fd = new FormData(form);
+        const email = fd.get("email");
+        try {
+          const resp = await apiJson("/api/sns/setup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email })
+          });
+          document.getElementById("snsSetupStatus").textContent = "SNS topic ready: " + resp.topic_arn;
+        } catch (e) {
+          document.getElementById("snsSetupStatus").textContent = "SNS setup failed: " + e.message;
+        }
+      });
+
+      // Poll periodically for a demo-friendly UX.
+      refreshAwsHealth();
+      refreshMetrics();
+      refreshAlerts();
+      refreshRecoveryEvents();
+      setInterval(refreshMetrics, 8000);
+      setInterval(refreshAwsHealth, 60000);
+      setInterval(refreshAlerts, 5000);
+      setInterval(refreshRecoveryEvents, 7000);
+    </script>
+  </body>
+</html>
+
