@@ -9,9 +9,6 @@
   <body>
     <div class="container">
       <h1>Cloud Chaos Lab</h1>
-      <p class="muted">
-        Beginner-friendly demo: launch an EC2 instance, trigger chaos (stop/reboot), monitor CPU + status checks, and auto-recover.
-      </p>
 
       <div
         id="awsBanner"
@@ -20,7 +17,7 @@
       >
         <span id="awsBannerText">
           {% if aws_ui.credentials_ok %}
-            AWS credentials OK — region {{ aws_ui.region }}.
+            AWS connected — region ap-south-1 (Mumbai).
           {% else %}
             AWS setup required: {{ aws_ui.credentials_error or "Unknown error" }} (configure credentials and region, then refresh.)
           {% endif %}
@@ -37,7 +34,16 @@
           </div>
           <div class="row">
             <div class="label">Instance ID</div>
-            <div class="value" id="instanceId">{{ snapshot.instance_id or "" }}</div>
+            <div class="value" style="text-align: left;">
+              <input
+                id="displayInstanceIdInput"
+                type="text"
+                value="{{ snapshot.display_instance_id or '' }}"
+                placeholder="Enter any instance id (display only)"
+                style="width: 100%; max-width: 420px;"
+              />
+              <div class="muted small" id="displayInstanceSaveStatus"></div>
+            </div>
           </div>
           <div class="row">
             <div class="label">State</div>
@@ -193,7 +199,8 @@
     </div>
 
     <script>
-      const instanceIdEl = document.getElementById("instanceId");
+      const displayInstanceIdInputEl = document.getElementById("displayInstanceIdInput");
+      const displayInstanceSaveStatusEl = document.getElementById("displayInstanceSaveStatus");
       const instanceStateEl = document.getElementById("instanceState");
       const autoRecoveryEl = document.getElementById("autoRecovery");
       const cpuLatestEl = document.getElementById("cpuLatest");
@@ -260,7 +267,11 @@
       }
 
       function updateSnapshot(snapshot) {
-        instanceIdEl.textContent = snapshot.instance_id || "";
+        if (snapshot.display_instance_id !== null && snapshot.display_instance_id !== undefined) {
+          // Don't clobber user typing.
+          const isFocused = document.activeElement === displayInstanceIdInputEl;
+          if (!isFocused) displayInstanceIdInputEl.value = snapshot.display_instance_id || "";
+        }
         instanceStateEl.textContent = snapshot.instance_state || "Unknown";
 
         if (snapshot.aws_region) {
@@ -408,9 +419,7 @@
       document.querySelectorAll(".control").forEach(btn => {
         btn.addEventListener("click", async () => {
           const action = btn.getAttribute("data-action");
-          const instance_id = instanceIdEl.textContent.trim();
           const body = { action };
-          if (instance_id) body.instance_id = instance_id;
           try {
             const resp = await apiJson("/api/ec2/control", {
               method: "POST",
@@ -426,9 +435,7 @@
       });
 
       document.getElementById("chaosBtn").addEventListener("click", async () => {
-        const instance_id = instanceIdEl.textContent.trim();
         const body = {};
-        if (instance_id) body.instance_id = instance_id;
         try {
           const resp = await apiJson("/api/chaos", {
             method: "POST",
@@ -460,6 +467,33 @@
       });
 
       // Poll periodically for a demo-friendly UX.
+      let displayIdSaveTimer = null;
+      async function saveDisplayInstanceId() {
+        const val = (displayInstanceIdInputEl.value || "").trim();
+        try {
+          displayInstanceSaveStatusEl.textContent = "Saving…";
+          await apiJson("/api/display-instance", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ display_instance_id: val })
+          });
+          displayInstanceSaveStatusEl.textContent = "Saved.";
+        } catch (e) {
+          displayInstanceSaveStatusEl.textContent = "Save failed: " + (e && e.message ? e.message : String(e));
+        }
+      }
+
+      displayInstanceIdInputEl.addEventListener("input", () => {
+        displayInstanceSaveStatusEl.textContent = "";
+        if (displayIdSaveTimer) clearTimeout(displayIdSaveTimer);
+        displayIdSaveTimer = setTimeout(saveDisplayInstanceId, 350);
+      });
+
+      displayInstanceIdInputEl.addEventListener("blur", () => {
+        if (displayIdSaveTimer) clearTimeout(displayIdSaveTimer);
+        saveDisplayInstanceId();
+      });
+
       refreshAwsHealth();
       refreshMetrics();
       refreshAlerts();

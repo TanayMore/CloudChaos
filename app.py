@@ -11,23 +11,6 @@ from typing import Any, Dict, List, Optional
 
 from flask import Flask, jsonify, render_template, request
 
-from aws_utils import (
-    DEFAULT_AWS_REGION,
-    check_credentials,
-    cloudwatch_get_instance_status_checks,
-    cloudwatch_get_latest_cpu_and_timeseries,
-    ec2_control_instance,
-    ec2_get_instance_state,
-    ec2_launch_instance,
-    format_aws_error,
-    get_latest_amazon_linux_ami_id,
-    make_session,
-    sns_ensure_topic_and_subscription,
-    sns_send_alert,
-    validate_region_name,
-)
-
-
 app = Flask(__name__)
 
 PROJECT_DIR = Path(__file__).resolve().parent
@@ -35,6 +18,90 @@ STATE_FILE = PROJECT_DIR / ".cloud_chaos_lab_state.json"
 ALERTS_FILE = PROJECT_DIR / ".cloud_chaos_lab_alerts.json"
 FAILURE_EVENTS_FILE = PROJECT_DIR / ".cloud_chaos_lab_failure_events.json"
 RECOVERY_EVENTS_FILE = PROJECT_DIR / ".cloud_chaos_lab_recovery_events.json"
+
+# ----------------------------
+# FULL DEMO MODE (no AWS)
+# ----------------------------
+HARDCODED_INSTANCE_ID = "i-0a616afbc0dbb26dd"
+DEMO_AWS_REGION = os.getenv("DEMO_AWS_REGION", "us-east-1")
+
+# Global simulated instance lifecycle state.
+instance_state_lock = threading.Lock()
+instance_state = "running"  # allowed: running, stopped, rebooting
+
+_reboot_timer_lock = threading.Lock()
+_reboot_timer: Optional[threading.Timer] = None
+
+_recovery_timer_lock = threading.Lock()
+_recovery_timer: Optional[threading.Timer] = None
+
+
+def _safe_cancel_timer(timer: Optional[threading.Timer]) -> None:
+    try:
+        if timer is not None:
+            timer.cancel()
+    except Exception:
+        pass
+
+
+def get_instance_state() -> str:
+    with instance_state_lock:
+        return str(instance_state)
+
+
+def set_instance_state(new_state: str) -> None:
+    global instance_state
+    if new_state not in {"running", "stopped", "rebooting"}:
+        raise ValueError("invalid instance_state")
+    with instance_state_lock:
+        instance_state = new_state
+
+    # Keep persisted UI state aligned.
+    with STATE_LOCK:
+        state["instance_id"] = HARDCODED_INSTANCE_ID
+        state.setdefault("display_instance_id", state.get("display_instance_id") or "")
+        state["aws_region"] = DEMO_AWS_REGION
+        state["last_instance_state"] = new_state
+        persist_state()
+
+
+def schedule_reboot_complete() -> None:
+    def _finish_reboot() -> None:
+        set_instance_state("running")
+        append_alert("instance_rebooted", f"Instance {HARDCODED_INSTANCE_ID} reboot completed.")
+        try:
+            record_recovery_completed(instance_id=HARDCODED_INSTANCE_ID)
+        except Exception as e:
+            append_alert("recovery_time_error", f"Recovery time recording failed: {e}")
+
+    global _reboot_timer
+    with _reboot_timer_lock:
+        _safe_cancel_timer(_reboot_timer)
+        _reboot_timer = threading.Timer(3.0, _finish_reboot)
+        _reboot_timer.daemon = True
+        _reboot_timer.start()
+
+
+def schedule_auto_recovery_if_stopped() -> None:
+    def _recover() -> None:
+        # If the user restarted manually, don't override.
+        if get_instance_state() != "stopped":
+            return
+        set_instance_state("running")
+        append_alert("auto_recovery", f"Auto recovery triggered for {HARDCODED_INSTANCE_ID}.", meta={"action": "start"})
+        try:
+            record_recovery_completed(instance_id=HARDCODED_INSTANCE_ID)
+        except Exception as e:
+            append_alert("recovery_time_error", f"Recovery time recording failed: {e}")
+
+    global _recovery_timer
+    with _recovery_timer_lock:
+        # If a recovery is already scheduled, don't keep pushing it out.
+        if _recovery_timer is not None and _recovery_timer.is_alive():
+            return
+        _recovery_timer = threading.Timer(5.0, _recover)
+        _recovery_timer.daemon = True
+        _recovery_timer.start()
 
 
 def _read_json_file(path: Path, default: Any) -> Any:
@@ -80,6 +147,8 @@ def load_state() -> Dict[str, Any]:
     defaults = {
         # Persisted after a successful launch (no env var required).
         "instance_id": None,
+        # UI-only instance ID (user-provided, display only).
+        "display_instance_id": "",
         # Region used for the launched instance and all API calls (set on launch).
         "aws_region": None,
         "sns_topic_name": os.getenv("SNS_TOPIC_NAME", "cloud-chaos-lab-alerts"),
@@ -132,26 +201,9 @@ def append_alert(kind: str, message: str, meta: Optional[Dict[str, Any]] = None,
         alerts = alerts[-200:]
         _write_json_file(ALERTS_FILE, alerts)
 
-    # Sending to SNS is optional (we don't want to fail core functionality).
-    if also_sns:
-        topic_arn = get_sns_topic_arn()
-        if topic_arn:
-            try:
-                sns = make_session(region_name=get_effective_region()).client("sns")
-                subject = f"Cloud Chaos Lab alert: {kind}"
-                sns_send_alert(sns, topic_arn=topic_arn, subject=subject, message=message)
-            except Exception as e:
-                # Log locally (do not throw).
-                with alerts_lock:
-                    alerts.append(
-                        AlertEvent(
-                            ts=now_iso(),
-                            kind="sns_error",
-                            message=f"Failed to send SNS alert: {e}",
-                        ).as_dict()
-                    )
-                    alerts[:] = alerts[-200:]
-                    _write_json_file(ALERTS_FILE, alerts)
+    # FULL DEMO MODE: SNS is disabled; alerts are in-memory only.
+    # `also_sns` is ignored intentionally to keep the UI/API behavior stable.
+    _ = also_sns
 
 
 def _append_event(
@@ -247,27 +299,13 @@ def cooldown_ok(kind: str, cooldown_seconds: int) -> bool:
 
 
 def get_effective_region() -> str:
-    """Single region for all AWS calls: saved after launch, else env, else default."""
-    with STATE_LOCK:
-        saved = state.get("aws_region")
-    if saved and str(saved).strip():
-        return str(saved).strip()
-    return os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or DEFAULT_AWS_REGION
+    """Demo region for UI display (no AWS calls are made)."""
+    return DEMO_AWS_REGION
 
 
 def get_aws_ui_status() -> Dict[str, Any]:
-    """For UI: credential check + active region (never raises)."""
-    region = get_effective_region()
-    try:
-        session = make_session(region_name=region)
-        ok, err = check_credentials(session)
-        return {"credentials_ok": ok, "credentials_error": err, "region": region}
-    except Exception as e:
-        return {
-            "credentials_ok": False,
-            "credentials_error": format_aws_error(e),
-            "region": region,
-        }
+    """For UI: always OK in demo mode (never raises)."""
+    return {"credentials_ok": True, "credentials_error": None, "region": get_effective_region()}
 
 
 def get_instance_id_from_request(payload: Dict[str, Any]) -> Optional[str]:
@@ -281,13 +319,15 @@ def get_instance_id_from_request(payload: Dict[str, Any]) -> Optional[str]:
 
 
 def get_current_snapshot() -> Dict[str, Any]:
-    instance_id = None
+    instance_id = HARDCODED_INSTANCE_ID
     recovery_time_seconds: Optional[int] = None
+    display_instance_id: str = ""
     with STATE_LOCK:
-        instance_id = state.get("instance_id")
         recovery_time_seconds = state.get("last_recovery_time_seconds")
+        display_instance_id = str(state.get("display_instance_id") or "")
 
     snapshot: Dict[str, Any] = {
+        "display_instance_id": display_instance_id,
         "instance_id": instance_id,
         "instance_state": None,
         "cpu_latest_percent": None,
@@ -301,45 +341,30 @@ def get_current_snapshot() -> Dict[str, Any]:
         "aws_region": get_effective_region(),
     }
 
-    if not instance_id:
-        return snapshot
+    # Demo-mode simulated state + metrics (realistic, but not AWS-backed).
+    st = get_instance_state()
+    snapshot["instance_state"] = st
 
-    session = make_session(region_name=get_effective_region())
-    ec2 = session.client("ec2")
-    cw = session.client("cloudwatch")
-    errs: List[str] = []
-    try:
-        snapshot["instance_state"] = ec2_get_instance_state(ec2, instance_id)
-    except Exception as e:
-        snapshot["instance_state"] = None
-        errs.append(format_aws_error(e))
+    # CPU metrics: 10–90, plus a small realistic series.
+    datapoints = int(os.getenv("CPU_DATAPOINTS", "12"))
+    cpu_latest = float(random.randint(10, 90))
+    series: List[float] = []
+    base = cpu_latest
+    for _ in range(max(1, datapoints)):
+        base = max(0.0, min(100.0, base + random.uniform(-8.0, 8.0)))
+        series.append(round(base, 2))
+    snapshot["cpu_latest_percent"] = round(cpu_latest, 2)
+    snapshot["cpu_series"] = series[-datapoints:]
 
-    try:
-        period = int(os.getenv("CPU_PERIOD_SECONDS", "60"))
-        datapoints = int(os.getenv("CPU_DATAPOINTS", "12"))
-        cpu = cloudwatch_get_latest_cpu_and_timeseries(
-            cw, instance_id=instance_id, period_seconds=period, datapoints=datapoints
-        )
-        snapshot["cpu_latest_percent"] = cpu["latest_cpu_percent"]
-        snapshot["cpu_series"] = cpu["cpu_series"]
-    except Exception as e:
-        snapshot["cpu_latest_percent"] = None
-        snapshot["cpu_series"] = []
-        errs.append(format_aws_error(e))
-
-    try:
-        checks = cloudwatch_get_instance_status_checks(cw, instance_id=instance_id)
-        snapshot["status_check_failed_system"] = checks["status_check_failed_system"]
-        snapshot["status_check_failed_instance"] = checks["status_check_failed_instance"]
-        snapshot["status_ok"] = checks["status_ok"]
-    except Exception as e:
-        snapshot["status_check_failed_system"] = None
-        snapshot["status_check_failed_instance"] = None
-        snapshot["status_ok"] = None
-        errs.append(format_aws_error(e))
-
-    if errs:
-        snapshot["aws_error"] = " ".join(errs[:3])
+    # Status checks: if stopped => failed, else OK.
+    if st == "stopped":
+        snapshot["status_check_failed_system"] = 1.0
+        snapshot["status_check_failed_instance"] = 1.0
+        snapshot["status_ok"] = False
+    else:
+        snapshot["status_check_failed_system"] = 0.0
+        snapshot["status_check_failed_instance"] = 0.0
+        snapshot["status_ok"] = True
 
     return snapshot
 
@@ -347,15 +372,14 @@ def get_current_snapshot() -> Dict[str, Any]:
 def monitor_and_recover_loop() -> None:
     """
     Periodically:
-    - checks instance state
-    - sends alerts (stop/restart chaos, high CPU, failed status checks)
-    - auto-recover by starting the instance if it's stopped
+    - emits realistic alerts (high CPU, status checks failed)
+    - records recovery completion once the instance is running again
     """
     global state
 
     auto_recovery_enabled = env_bool("AUTO_RECOVERY_ENABLED", True)
     high_cpu_threshold = float(os.getenv("HIGH_CPU_THRESHOLD", "70"))
-    monitor_interval_seconds = int(os.getenv("MONITOR_INTERVAL_SECONDS", "30"))
+    monitor_interval_seconds = int(os.getenv("MONITOR_INTERVAL_SECONDS", "3"))
     alert_cooldown_seconds = int(os.getenv("ALERT_COOLDOWN_SECONDS", "300"))
 
     # This loop stores "prev state" in memory, but also writes the latest to STATE_FILE.
@@ -366,113 +390,56 @@ def monitor_and_recover_loop() -> None:
     while True:
         time.sleep(monitor_interval_seconds)
 
-        with STATE_LOCK:
-            instance_id = state.get("instance_id")
-            sns_topic_arn = state.get("sns_topic_arn")
+        instance_id = HARDCODED_INSTANCE_ID
+        current_state = get_instance_state()
 
-        if not instance_id:
-            continue
-
-        session = make_session(region_name=get_effective_region())
-        ec2 = session.client("ec2")
-        cw = session.client("cloudwatch")
-
-        # 1) Instance state + stop alert
-        try:
-            current_state = ec2_get_instance_state(ec2, instance_id)
-        except Exception:
-            current_state = None
-
-        if current_state:
-            # Detect transition to stopped.
-            if prev_state in ("running", "pending", "stopping") and current_state == "stopped":
-                # If we didn't start a recovery timer via an API call, start it now
-                # when we *observe* the instance enter `stopped`.
-                with STATE_LOCK:
-                    timer_start_ts = state.get("recovery_timer_start_ts")
-                    timer_end_ts = state.get("recovery_timer_end_ts")
-
-                if timer_start_ts is None or timer_end_ts is not None:
-                    try:
-                        record_failure_trigger(
-                            instance_id=instance_id,
-                            failure_kind="instance_stopped_detected",
-                            message=f"Failure triggered: instance {instance_id} stopped (detected by monitor).",
-                        )
-                    except Exception as e:
-                        append_alert("recovery_time_error", f"Failed to start recovery timer: {e}")
-
-                msg = f"Instance {instance_id} stopped."
-                if cooldown_ok("instance_stopped", alert_cooldown_seconds):
-                    append_alert("instance_stopped", msg, also_sns=bool(sns_topic_arn))
-
-                    # Auto-recovery will start below.
-
-            # Auto-recovery
-            if auto_recovery_enabled and current_state == "stopped":
-                # Prevent constant retries if AWS is slow to update.
-                if cooldown_ok("auto_recovery_start", alert_cooldown_seconds):
-                    try:
-                        ec2_control_instance(ec2, instance_id, "start")
-                        append_alert(
-                            "auto_recovery",
-                            f"Auto-recovery started instance {instance_id}.",
-                            meta={"action": "start"},
-                            also_sns=bool(sns_topic_arn),
-                        )
-                    except Exception as e:
-                        append_alert("auto_recovery_error", f"Auto-recovery failed: {e}")
-
-            # Recovery time measurement: when we see `running` again.
-            if current_state == "running":
-                try:
-                    record_recovery_completed(instance_id=instance_id)
-                except Exception as e:
-                    append_alert("recovery_time_error", f"Recovery time recording failed: {e}")
-
+        # Detect transition to stopped (for alerts/timer start if needed).
+        if prev_state in ("running", "rebooting") and current_state == "stopped":
             with STATE_LOCK:
-                state["last_instance_state"] = current_state
-                persist_state()
+                timer_start_ts = state.get("recovery_timer_start_ts")
+                timer_end_ts = state.get("recovery_timer_end_ts")
+            if timer_start_ts is None or timer_end_ts is not None:
+                try:
+                    record_failure_trigger(
+                        instance_id=instance_id,
+                        failure_kind="instance_stopped_detected",
+                        message=f"Failure triggered: instance {instance_id} stopped (detected by monitor).",
+                    )
+                except Exception as e:
+                    append_alert("recovery_time_error", f"Failed to start recovery timer: {e}")
 
-            prev_state = current_state
+            if cooldown_ok("instance_stopped", alert_cooldown_seconds):
+                append_alert("instance_stopped", f"Instance {instance_id} stopped.")
 
-        # 2) CloudWatch CPU alert
-        try:
-            period = int(os.getenv("CPU_PERIOD_SECONDS", "60"))
-            datapoints = int(os.getenv("CPU_DATAPOINTS", "12"))
-            cpu = cloudwatch_get_latest_cpu_and_timeseries(
-                cw, instance_id=instance_id, period_seconds=period, datapoints=datapoints
-            )
-            cpu_latest = cpu.get("latest_cpu_percent")
-        except Exception:
-            cpu_latest = None
+            if auto_recovery_enabled:
+                schedule_auto_recovery_if_stopped()
 
-        if cpu_latest is not None and cpu_latest >= high_cpu_threshold:
+        # Recovery time measurement: when we see `running` again.
+        if current_state == "running":
+            try:
+                record_recovery_completed(instance_id=instance_id)
+            except Exception as e:
+                append_alert("recovery_time_error", f"Recovery time recording failed: {e}")
+
+        with STATE_LOCK:
+            state["instance_id"] = instance_id
+            state["aws_region"] = DEMO_AWS_REGION
+            state["last_instance_state"] = current_state
+            persist_state()
+        prev_state = current_state
+
+        # High CPU alert (simulated).
+        cpu_latest = float(random.randint(10, 90))
+        if cpu_latest >= high_cpu_threshold:
             if cooldown_ok(f"high_cpu_{int(high_cpu_threshold)}", alert_cooldown_seconds):
                 msg = f"High CPU detected on {instance_id}: {cpu_latest:.2f}% (threshold {high_cpu_threshold:.2f}%)"
-                append_alert("high_cpu", msg, meta={"cpu_latest_percent": cpu_latest}, also_sns=bool(sns_topic_arn))
+                append_alert("high_cpu", msg, meta={"cpu_latest_percent": cpu_latest})
 
-        # 3) Instance status check alerts
-        try:
-            checks = cloudwatch_get_instance_status_checks(cw, instance_id=instance_id)
-            sys_failed = checks.get("status_check_failed_system")
-            inst_failed = checks.get("status_check_failed_instance")
-        except Exception:
-            sys_failed = None
-            inst_failed = None
-
-        if (sys_failed == 1.0) or (inst_failed == 1.0):
+        # Status check failure alert when stopped.
+        if current_state == "stopped":
             if cooldown_ok("status_checks_failed", alert_cooldown_seconds):
-                msg = (
-                    f"Instance status checks failed for {instance_id}. "
-                    f"system_failed={sys_failed}, instance_failed={inst_failed}"
-                )
-                append_alert(
-                    "status_checks_failed",
-                    msg,
-                    meta={"system_failed": sys_failed, "instance_failed": inst_failed},
-                    also_sns=bool(sns_topic_arn),
-                )
+                msg = f"Instance status checks failed for {instance_id}. system_failed=1.0, instance_failed=1.0"
+                append_alert("status_checks_failed", msg, meta={"system_failed": 1.0, "instance_failed": 1.0})
 
 
 @app.route("/")
@@ -480,14 +447,14 @@ def index() -> Any:
     snapshot = get_current_snapshot()
     aws_ui = get_aws_ui_status()
     with STATE_LOCK:
-        instance_id = state.get("instance_id")
+        display_instance_id = state.get("display_instance_id") or ""
         sns_topic_name = state.get("sns_topic_name")
         auto_recovery_enabled = env_bool("AUTO_RECOVERY_ENABLED", True)
 
     return render_template(
         "index.html",
         snapshot=snapshot,
-        instance_id=instance_id,
+        display_instance_id=display_instance_id,
         sns_topic_name=sns_topic_name,
         auto_recovery_enabled=auto_recovery_enabled,
         high_cpu_threshold=float(os.getenv("HIGH_CPU_THRESHOLD", "70")),
@@ -505,10 +472,11 @@ def api_state() -> Any:
     with STATE_LOCK:
         return jsonify(
             {
-                "instance_id": state.get("instance_id"),
+                "display_instance_id": state.get("display_instance_id") or "",
+                "instance_id": HARDCODED_INSTANCE_ID,
                 "aws_region": get_effective_region(),
-                "sns_topic_arn": state.get("sns_topic_arn"),
-                "last_instance_state": state.get("last_instance_state"),
+                "sns_topic_arn": None,
+                "last_instance_state": get_instance_state(),
             }
         )
 
@@ -518,13 +486,28 @@ def api_metrics() -> Any:
     return jsonify(get_current_snapshot())
 
 
+@app.route("/api/display-instance", methods=["POST"])
+def api_display_instance() -> Any:
+    payload = request.get_json(silent=True) or {}
+    display_instance_id = str(payload.get("display_instance_id") or "").strip()
+    with STATE_LOCK:
+        state["display_instance_id"] = display_instance_id
+        persist_state()
+    append_alert(
+        "display_instance_id_updated",
+        f"Display instance ID updated to: {display_instance_id or '(empty)'}",
+        meta={"display_instance_id": display_instance_id},
+    )
+    return jsonify({"ok": True, "display_instance_id": display_instance_id})
+
+
 @app.route("/api/health", methods=["GET"])
 def api_health() -> Any:
     """AWS credential + region status for the UI (no secrets returned)."""
     ui = get_aws_ui_status()
     return jsonify(
         {
-            "ok": bool(ui.get("credentials_ok")),
+            "ok": True,
             "credentials_ok": ui.get("credentials_ok"),
             "error": ui.get("credentials_error"),
             "region": ui.get("region"),
@@ -550,90 +533,23 @@ def api_recovery_events() -> Any:
 
 @app.route("/api/sns/setup", methods=["POST"])
 def api_sns_setup() -> Any:
+    # FULL DEMO MODE: SNS is not used. Keep endpoint for UI compatibility.
     payload = request.get_json(silent=True) or {}
-    email = (payload.get("email") or os.getenv("ALERT_EMAIL") or "").strip()
-    if not email:
-        return jsonify({"ok": False, "error": "Missing alert email. Provide JSON {\"email\": \"...\"} or set ALERT_EMAIL."}), 400
-
     topic_name = (payload.get("topic_name") or os.getenv("SNS_TOPIC_NAME") or "cloud-chaos-lab-alerts").strip()
-    try:
-        session = make_session(region_name=get_effective_region())
-        sns = session.client("sns")
-        topic_arn = sns_ensure_topic_and_subscription(sns, topic_name=topic_name, email=email)
-        with STATE_LOCK:
-            state["sns_topic_name"] = topic_name
-            state["sns_topic_arn"] = topic_arn
-            persist_state()
-
-        append_alert("sns_setup", f"SNS topic ready ({topic_name}). Subscription request sent to {email}.")
-        return jsonify({"ok": True, "topic_arn": topic_arn})
-    except Exception as e:
-        return jsonify({"ok": False, "error": format_aws_error(e)}), 500
+    with STATE_LOCK:
+        state["sns_topic_name"] = topic_name
+        state["sns_topic_arn"] = None
+        persist_state()
+    append_alert("sns_setup", "Demo mode: SNS alerts are simulated and shown in-app only.")
+    return jsonify({"ok": True, "topic_arn": None})
 
 
 @app.route("/api/ec2/launch", methods=["POST"])
 def api_launch_ec2() -> Any:
-    payload = request.get_json(silent=True) or {}
-    instance_type = (payload.get("instance_type") or "t3.micro").strip()
-    security_group_ids_raw = (payload.get("security_group_ids") or "").strip()
-    # Optional overrides for advanced users (not shown in the simplified UI).
-    key_name = (payload.get("key_name") or "").strip() or None
-    subnet_id = (payload.get("subnet_id") or "").strip() or None
-    iam_instance_profile = (payload.get("iam_instance_profile") or "").strip() or None
-    tag_name = (payload.get("tag_name") or "CloudChaosLab").strip() or None
-    region_override = (payload.get("region") or "").strip() or None
-
-    if not security_group_ids_raw:
-        return jsonify({"ok": False, "error": "security_group_ids is required (comma-separated)."}), 400
-
-    security_group_ids = [s.strip() for s in security_group_ids_raw.split(",") if s.strip()]
-    if not security_group_ids:
-        return jsonify({"ok": False, "error": "No valid security group IDs were parsed."}), 400
-
-    # Region: explicit in request, else current effective region (env/default/saved).
-    region = region_override or get_effective_region()
-    session = make_session(region_name=region)
-    ok, cred_err = check_credentials(session)
-    if not ok:
-        return jsonify({"ok": False, "error": cred_err or "AWS credentials check failed."}), 401
-
-    try:
-        validate_region_name(region)
-    except ValueError as e:
-        return jsonify({"ok": False, "error": str(e)}), 400
-
-    try:
-        ami_id = get_latest_amazon_linux_ami_id(session)
-    except ValueError as e:
-        return jsonify({"ok": False, "error": str(e)}), 400
-    except Exception as e:
-        return jsonify({"ok": False, "error": format_aws_error(e)}), 400
-
-    try:
-        ec2 = session.client("ec2")
-        instance_id = ec2_launch_instance(
-            ec2,
-            ami_id=ami_id,
-            instance_type=instance_type,
-            key_name=key_name,
-            security_group_ids=security_group_ids,
-            subnet_id=subnet_id,
-            iam_instance_profile=iam_instance_profile,
-            tag_name=tag_name,
-        )
-        with STATE_LOCK:
-            state["instance_id"] = instance_id
-            state["aws_region"] = region
-            state["last_instance_state"] = None
-            persist_state()
-
-        append_alert(
-            "instance_launch",
-            f"Launched instance {instance_id} in {region} using AMI {ami_id}.",
-        )
-        return jsonify({"ok": True, "instance_id": instance_id, "region": region, "ami_id": ami_id})
-    except Exception as e:
-        return jsonify({"ok": False, "error": format_aws_error(e)}), 500
+    # FULL DEMO MODE: "launch" simply ensures the hardcoded instance exists.
+    set_instance_state("running")
+    append_alert("instance_launch", f"Demo mode: using existing instance {HARDCODED_INSTANCE_ID} in {DEMO_AWS_REGION}.")
+    return jsonify({"ok": True, "instance_id": HARDCODED_INSTANCE_ID, "region": DEMO_AWS_REGION, "ami_id": "ami-demo"})
 
 
 @app.route("/api/ec2/control", methods=["POST"])
@@ -643,43 +559,39 @@ def api_ec2_control() -> Any:
     if action not in {"start", "stop", "reboot"}:
         return jsonify({"ok": False, "error": "action must be one of: start, stop, reboot"}), 400
 
-    instance_id = get_instance_id_from_request(payload)
-    if not instance_id:
-        return jsonify(
-            {
-                "ok": False,
-                "error": "No instance ID yet. Launch an instance from this app first (instance ID is saved automatically).",
-            }
-        ), 400
-
+    instance_id = HARDCODED_INSTANCE_ID
     try:
-        session = make_session(region_name=get_effective_region())
-        ec2 = session.client("ec2")
-        ec2_control_instance(ec2, instance_id, action)
-        # Treat stopping as the "failure trigger" for recovery time measurement.
-        if action == "stop":
+        if action == "start":
+            set_instance_state("running")
+        elif action == "stop":
+            set_instance_state("stopped")
             record_failure_trigger(
                 instance_id=instance_id,
                 failure_kind="manual_stop",
                 message=f"Failure triggered: stop requested for instance {instance_id}.",
             )
-        append_alert("instance_control", f"EC2 control: {action} on {instance_id}.", meta={"action": action}, also_sns=bool(get_sns_topic_arn()))
+            append_alert("instance_stopped", f"Instance {instance_id} stopped.")
+            schedule_auto_recovery_if_stopped()
+        elif action == "reboot":
+            set_instance_state("rebooting")
+            record_failure_trigger(
+                instance_id=instance_id,
+                failure_kind="manual_reboot",
+                message=f"Failure triggered: reboot requested for instance {instance_id}.",
+            )
+            append_alert("instance_rebooting", f"Instance {instance_id} rebooting.")
+            schedule_reboot_complete()
+
+        append_alert("instance_control", f"EC2 control: {action} on {instance_id}.", meta={"action": action})
         return jsonify({"ok": True, "instance_id": instance_id, "action": action})
     except Exception as e:
-        return jsonify({"ok": False, "error": format_aws_error(e)}), 500
+        return jsonify({"ok": True, "instance_id": instance_id, "action": action, "warning": str(e)})
 
 
 @app.route("/api/chaos", methods=["POST"])
 def api_chaos() -> Any:
     payload = request.get_json(silent=True) or {}
-    instance_id = get_instance_id_from_request(payload)
-    if not instance_id:
-        return jsonify(
-            {
-                "ok": False,
-                "error": "No instance ID yet. Launch an instance from this app first (instance ID is saved automatically).",
-            }
-        ), 400
+    instance_id = HARDCODED_INSTANCE_ID
 
     chaos_action = payload.get("chaos_action")
     if chaos_action:
@@ -690,29 +602,31 @@ def api_chaos() -> Any:
         chaos_action = random.choice(["stop", "reboot"])
 
     try:
-        session = make_session(region_name=get_effective_region())
-        ec2 = session.client("ec2")
-        # Chaos engine: stop or reboot.
-        ec2_control_instance(ec2, instance_id, chaos_action)
-
-        # Treat chaos stop as the "failure trigger" for recovery time measurement.
         if chaos_action == "stop":
+            set_instance_state("stopped")
             record_failure_trigger(
                 instance_id=instance_id,
                 failure_kind="chaos_stop",
                 message=f"Failure triggered: chaos stop requested for instance {instance_id}.",
             )
+            append_alert("instance_stopped", f"Instance {instance_id} stopped.")
+            schedule_auto_recovery_if_stopped()
+        else:
+            set_instance_state("rebooting")
+            record_failure_trigger(
+                instance_id=instance_id,
+                failure_kind="chaos_reboot",
+                message=f"Failure triggered: chaos reboot requested for instance {instance_id}.",
+            )
+            append_alert("instance_rebooting", f"Instance {instance_id} rebooting.")
+            schedule_reboot_complete()
 
-        # Alert immediately when chaos is triggered.
-        append_alert(
-            "chaos_triggered",
-            f"Chaos triggered on {instance_id}: {chaos_action}.",
-            meta={"chaos_action": chaos_action},
-            also_sns=bool(get_sns_topic_arn()),
-        )
+        append_alert("chaos_triggered", f"Chaos triggered on {instance_id}: {chaos_action}.", meta={"chaos_action": chaos_action})
         return jsonify({"ok": True, "instance_id": instance_id, "chaos_action": chaos_action})
     except Exception as e:
-        return jsonify({"ok": False, "error": format_aws_error(e)}), 500
+        # Requirement: return success always.
+        append_alert("chaos_error", f"Chaos simulation error: {e}")
+        return jsonify({"ok": True, "instance_id": instance_id, "chaos_action": chaos_action, "warning": str(e)})
 
 
 if __name__ == "__main__":

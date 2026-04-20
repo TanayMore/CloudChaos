@@ -1,0 +1,92 @@
+[
+  {
+    "ts": "2026-04-20T05:11:51Z",
+    "kind": "recovered",
+    "message": "Instance i-0a616afbc0dbb26dd is running again.",
+    "meta": {
+      "recovery_seconds": 8
+    },
+    "attempt_id": 1
+  },
+  {
+    "ts": "2026-04-20T05:12:24Z",
+    "kind": "recovered",
+    "message": "Instance i-0a616afbc0dbb26dd is running again.",
+    "meta": {
+      "recovery_seconds": 6
+    },
+    "attempt_id": 2
+  },
+  {
+    "ts": "2026-04-20T05:14:00Z",
+    "kind": "recovered",
+    "message": "Instance i-0a616afbc0dbb26dd is running again.",
+    "meta": {
+      "recovery_seconds": 3
+    },
+    "attempt_id": 4
+  },
+  {
+    "ts": "2026-04-20T05:14:08Z",
+    "kind": "recovered",
+    "message": "Instance i-0a616afbc0dbb26dd is running again.",
+    "meta": {
+      "recovery_seconds": 3
+    },
+    "attempt_id": 5
+  },
+  {
+    "ts": "2026-04-20T05:14:27Z",
+    "kind": "recovered",
+    "message": "Instance i-0a616afbc0dbb26dd is running again.",
+    "meta": {
+      "recovery_seconds": 2
+    },
+    "attempt_id": 8
+  },
+  {
+    "ts": "2026-04-20T05:23:59Z",
+    "kind": "recovered",
+    "message": "Instance i-0a616afbc0dbb26dd is running again.",
+    "meta": {
+      "recovery_seconds": 3
+    },
+    "attempt_id": 9
+  },
+  {
+    "ts": "2026-04-20T05:24:08Z",
+    "kind": "recovered",
+    "message": "Instance i-0a616afbc0dbb26dd is running again.",
+    "meta": {
+      "recovery_seconds": 2
+    },
+    "attempt_id": 14
+  },
+  {
+    "ts": "2026-04-20T05:24:16Z",
+    "kind": "recovered",
+    "message": "Instance i-0a616afbc0dbb26dd is running again.",
+    "meta": {
+      "recovery_seconds": 3
+    },
+    "attempt_id": 15
+  },
+  {
+    "ts": "2026-04-20T05:24:22Z",
+    "kind": "recovered",
+    "message": "Instance i-0a616afbc0dbb26dd is running again.",
+    "meta": {
+      "recovery_seconds": 3
+    },
+    "attempt_id": 17
+  },
+  {
+    "ts": "2026-04-20T05:24:26Z",
+    "kind": "recovered",
+    "message": "Instance i-0a616afbc0dbb26dd is running again.",
+    "meta": {
+      "recovery_seconds": 2
+    },
+    "attempt_id": 19
+  }
+]

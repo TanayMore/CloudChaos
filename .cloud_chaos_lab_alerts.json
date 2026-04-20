@@ -1,0 +1,568 @@
+[
+  {
+    "ts": "2026-04-20T05:11:37Z",
+    "kind": "high_cpu",
+    "message": "High CPU detected on i-0a616afbc0dbb26dd: 89.00% (threshold 70.00%)",
+    "meta": {
+      "cpu_latest_percent": 89.0
+    }
+  },
+  {
+    "ts": "2026-04-20T05:11:43Z",
+    "kind": "instance_stopped",
+    "message": "Instance i-0a616afbc0dbb26dd stopped.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:11:43Z",
+    "kind": "instance_control",
+    "message": "EC2 control: stop on i-0a616afbc0dbb26dd.",
+    "meta": {
+      "action": "stop"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:11:46Z",
+    "kind": "instance_stopped",
+    "message": "Instance i-0a616afbc0dbb26dd stopped.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:11:46Z",
+    "kind": "status_checks_failed",
+    "message": "Instance status checks failed for i-0a616afbc0dbb26dd. system_failed=1.0, instance_failed=1.0",
+    "meta": {
+      "system_failed": 1.0,
+      "instance_failed": 1.0
+    }
+  },
+  {
+    "ts": "2026-04-20T05:11:51Z",
+    "kind": "auto_recovery",
+    "message": "Auto recovery triggered for i-0a616afbc0dbb26dd.",
+    "meta": {
+      "action": "start"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:12:18Z",
+    "kind": "instance_stopped",
+    "message": "Instance i-0a616afbc0dbb26dd stopped.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:12:18Z",
+    "kind": "instance_control",
+    "message": "EC2 control: stop on i-0a616afbc0dbb26dd.",
+    "meta": {
+      "action": "stop"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:12:24Z",
+    "kind": "auto_recovery",
+    "message": "Auto recovery triggered for i-0a616afbc0dbb26dd.",
+    "meta": {
+      "action": "start"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:13:46Z",
+    "kind": "instance_launch",
+    "message": "Demo mode: using existing instance i-0a616afbc0dbb26dd in us-east-1.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:13:54Z",
+    "kind": "instance_control",
+    "message": "EC2 control: start on i-0a616afbc0dbb26dd.",
+    "meta": {
+      "action": "start"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:13:56Z",
+    "kind": "instance_stopped",
+    "message": "Instance i-0a616afbc0dbb26dd stopped.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:13:56Z",
+    "kind": "instance_control",
+    "message": "EC2 control: stop on i-0a616afbc0dbb26dd.",
+    "meta": {
+      "action": "stop"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:13:57Z",
+    "kind": "instance_rebooting",
+    "message": "Instance i-0a616afbc0dbb26dd rebooting.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:13:57Z",
+    "kind": "instance_control",
+    "message": "EC2 control: reboot on i-0a616afbc0dbb26dd.",
+    "meta": {
+      "action": "reboot"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:13:59Z",
+    "kind": "instance_control",
+    "message": "EC2 control: start on i-0a616afbc0dbb26dd.",
+    "meta": {
+      "action": "start"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:14:00Z",
+    "kind": "instance_rebooted",
+    "message": "Instance i-0a616afbc0dbb26dd reboot completed.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:14:05Z",
+    "kind": "instance_rebooting",
+    "message": "Instance i-0a616afbc0dbb26dd rebooting.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:14:05Z",
+    "kind": "chaos_triggered",
+    "message": "Chaos triggered on i-0a616afbc0dbb26dd: reboot.",
+    "meta": {
+      "chaos_action": "reboot"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:14:08Z",
+    "kind": "instance_rebooted",
+    "message": "Instance i-0a616afbc0dbb26dd reboot completed.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:14:22Z",
+    "kind": "instance_stopped",
+    "message": "Instance i-0a616afbc0dbb26dd stopped.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:14:22Z",
+    "kind": "chaos_triggered",
+    "message": "Chaos triggered on i-0a616afbc0dbb26dd: stop.",
+    "meta": {
+      "chaos_action": "stop"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:14:24Z",
+    "kind": "instance_rebooting",
+    "message": "Instance i-0a616afbc0dbb26dd rebooting.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:14:24Z",
+    "kind": "chaos_triggered",
+    "message": "Chaos triggered on i-0a616afbc0dbb26dd: reboot.",
+    "meta": {
+      "chaos_action": "reboot"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:14:25Z",
+    "kind": "instance_stopped",
+    "message": "Instance i-0a616afbc0dbb26dd stopped.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:14:25Z",
+    "kind": "chaos_triggered",
+    "message": "Chaos triggered on i-0a616afbc0dbb26dd: stop.",
+    "meta": {
+      "chaos_action": "stop"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:14:27Z",
+    "kind": "instance_launch",
+    "message": "Demo mode: using existing instance i-0a616afbc0dbb26dd in us-east-1.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:14:27Z",
+    "kind": "instance_rebooted",
+    "message": "Instance i-0a616afbc0dbb26dd reboot completed.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:17:16Z",
+    "kind": "high_cpu",
+    "message": "High CPU detected on i-0a616afbc0dbb26dd: 74.00% (threshold 70.00%)",
+    "meta": {
+      "cpu_latest_percent": 74.0
+    }
+  },
+  {
+    "ts": "2026-04-20T05:21:42Z",
+    "kind": "display_instance_id_updated",
+    "message": "Display instance ID updated to: i-user-typed-123",
+    "meta": {
+      "display_instance_id": "i-user-typed-123"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:22:17Z",
+    "kind": "high_cpu",
+    "message": "High CPU detected on i-0a616afbc0dbb26dd: 75.00% (threshold 70.00%)",
+    "meta": {
+      "cpu_latest_percent": 75.0
+    }
+  },
+  {
+    "ts": "2026-04-20T05:22:49Z",
+    "kind": "display_instance_id_updated",
+    "message": "Display instance ID updated to: (empty)",
+    "meta": {
+      "display_instance_id": ""
+    }
+  },
+  {
+    "ts": "2026-04-20T05:22:58Z",
+    "kind": "display_instance_id_updated",
+    "message": "Display instance ID updated to: (empty)",
+    "meta": {
+      "display_instance_id": ""
+    }
+  },
+  {
+    "ts": "2026-04-20T05:23:34Z",
+    "kind": "display_instance_id_updated",
+    "message": "Display instance ID updated to: HARDCODED_INSTANCE_ID = \"i-0a616afbc0dbb26dd\"",
+    "meta": {
+      "display_instance_id": "HARDCODED_INSTANCE_ID = \"i-0a616afbc0dbb26dd\""
+    }
+  },
+  {
+    "ts": "2026-04-20T05:23:36Z",
+    "kind": "display_instance_id_updated",
+    "message": "Display instance ID updated to: i-0a616afbc0dbb26dd\"",
+    "meta": {
+      "display_instance_id": "i-0a616afbc0dbb26dd\""
+    }
+  },
+  {
+    "ts": "2026-04-20T05:23:38Z",
+    "kind": "display_instance_id_updated",
+    "message": "Display instance ID updated to: i-0a616afbc0dbb26dd",
+    "meta": {
+      "display_instance_id": "i-0a616afbc0dbb26dd"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:23:39Z",
+    "kind": "display_instance_id_updated",
+    "message": "Display instance ID updated to: i-0a616afbc0dbb26dd",
+    "meta": {
+      "display_instance_id": "i-0a616afbc0dbb26dd"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:23:51Z",
+    "kind": "instance_launch",
+    "message": "Demo mode: using existing instance i-0a616afbc0dbb26dd in us-east-1.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:23:53Z",
+    "kind": "instance_launch",
+    "message": "Demo mode: using existing instance i-0a616afbc0dbb26dd in us-east-1.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:23:56Z",
+    "kind": "instance_rebooting",
+    "message": "Instance i-0a616afbc0dbb26dd rebooting.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:23:56Z",
+    "kind": "chaos_triggered",
+    "message": "Chaos triggered on i-0a616afbc0dbb26dd: reboot.",
+    "meta": {
+      "chaos_action": "reboot"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:23:59Z",
+    "kind": "instance_rebooted",
+    "message": "Instance i-0a616afbc0dbb26dd reboot completed.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:23:59Z",
+    "kind": "instance_stopped",
+    "message": "Instance i-0a616afbc0dbb26dd stopped.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:23:59Z",
+    "kind": "chaos_triggered",
+    "message": "Chaos triggered on i-0a616afbc0dbb26dd: stop.",
+    "meta": {
+      "chaos_action": "stop"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:24:02Z",
+    "kind": "instance_stopped",
+    "message": "Instance i-0a616afbc0dbb26dd stopped.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:24:02Z",
+    "kind": "status_checks_failed",
+    "message": "Instance status checks failed for i-0a616afbc0dbb26dd. system_failed=1.0, instance_failed=1.0",
+    "meta": {
+      "system_failed": 1.0,
+      "instance_failed": 1.0
+    }
+  },
+  {
+    "ts": "2026-04-20T05:24:02Z",
+    "kind": "instance_stopped",
+    "message": "Instance i-0a616afbc0dbb26dd stopped.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:24:02Z",
+    "kind": "chaos_triggered",
+    "message": "Chaos triggered on i-0a616afbc0dbb26dd: stop.",
+    "meta": {
+      "chaos_action": "stop"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:24:03Z",
+    "kind": "instance_stopped",
+    "message": "Instance i-0a616afbc0dbb26dd stopped.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:24:03Z",
+    "kind": "chaos_triggered",
+    "message": "Chaos triggered on i-0a616afbc0dbb26dd: stop.",
+    "meta": {
+      "chaos_action": "stop"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:24:04Z",
+    "kind": "instance_rebooting",
+    "message": "Instance i-0a616afbc0dbb26dd rebooting.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:24:04Z",
+    "kind": "chaos_triggered",
+    "message": "Chaos triggered on i-0a616afbc0dbb26dd: reboot.",
+    "meta": {
+      "chaos_action": "reboot"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:24:06Z",
+    "kind": "instance_rebooting",
+    "message": "Instance i-0a616afbc0dbb26dd rebooting.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:24:06Z",
+    "kind": "chaos_triggered",
+    "message": "Chaos triggered on i-0a616afbc0dbb26dd: reboot.",
+    "meta": {
+      "chaos_action": "reboot"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:24:07Z",
+    "kind": "instance_launch",
+    "message": "Demo mode: using existing instance i-0a616afbc0dbb26dd in us-east-1.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:24:09Z",
+    "kind": "instance_rebooted",
+    "message": "Instance i-0a616afbc0dbb26dd reboot completed.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:24:09Z",
+    "kind": "instance_control",
+    "message": "EC2 control: start on i-0a616afbc0dbb26dd.",
+    "meta": {
+      "action": "start"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:24:13Z",
+    "kind": "instance_rebooting",
+    "message": "Instance i-0a616afbc0dbb26dd rebooting.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:24:13Z",
+    "kind": "chaos_triggered",
+    "message": "Chaos triggered on i-0a616afbc0dbb26dd: reboot.",
+    "meta": {
+      "chaos_action": "reboot"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:24:16Z",
+    "kind": "instance_control",
+    "message": "EC2 control: start on i-0a616afbc0dbb26dd.",
+    "meta": {
+      "action": "start"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:24:16Z",
+    "kind": "instance_rebooted",
+    "message": "Instance i-0a616afbc0dbb26dd reboot completed.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:24:17Z",
+    "kind": "instance_control",
+    "message": "EC2 control: start on i-0a616afbc0dbb26dd.",
+    "meta": {
+      "action": "start"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:24:18Z",
+    "kind": "instance_stopped",
+    "message": "Instance i-0a616afbc0dbb26dd stopped.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:24:18Z",
+    "kind": "instance_control",
+    "message": "EC2 control: stop on i-0a616afbc0dbb26dd.",
+    "meta": {
+      "action": "stop"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:24:19Z",
+    "kind": "instance_rebooting",
+    "message": "Instance i-0a616afbc0dbb26dd rebooting.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:24:19Z",
+    "kind": "instance_control",
+    "message": "EC2 control: reboot on i-0a616afbc0dbb26dd.",
+    "meta": {
+      "action": "reboot"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:24:21Z",
+    "kind": "instance_control",
+    "message": "EC2 control: start on i-0a616afbc0dbb26dd.",
+    "meta": {
+      "action": "start"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:24:22Z",
+    "kind": "instance_control",
+    "message": "EC2 control: start on i-0a616afbc0dbb26dd.",
+    "meta": {
+      "action": "start"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:24:22Z",
+    "kind": "instance_rebooted",
+    "message": "Instance i-0a616afbc0dbb26dd reboot completed.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:24:23Z",
+    "kind": "instance_stopped",
+    "message": "Instance i-0a616afbc0dbb26dd stopped.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:24:23Z",
+    "kind": "instance_control",
+    "message": "EC2 control: stop on i-0a616afbc0dbb26dd.",
+    "meta": {
+      "action": "stop"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:24:24Z",
+    "kind": "instance_rebooting",
+    "message": "Instance i-0a616afbc0dbb26dd rebooting.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:24:24Z",
+    "kind": "instance_control",
+    "message": "EC2 control: reboot on i-0a616afbc0dbb26dd.",
+    "meta": {
+      "action": "reboot"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:24:26Z",
+    "kind": "instance_control",
+    "message": "EC2 control: start on i-0a616afbc0dbb26dd.",
+    "meta": {
+      "action": "start"
+    }
+  },
+  {
+    "ts": "2026-04-20T05:24:27Z",
+    "kind": "instance_rebooted",
+    "message": "Instance i-0a616afbc0dbb26dd reboot completed.",
+    "meta": null
+  },
+  {
+    "ts": "2026-04-20T05:27:23Z",
+    "kind": "high_cpu",
+    "message": "High CPU detected on i-0a616afbc0dbb26dd: 80.00% (threshold 70.00%)",
+    "meta": {
+      "cpu_latest_percent": 80.0
+    }
+  },
+  {
+    "ts": "2026-04-20T05:32:41Z",
+    "kind": "high_cpu",
+    "message": "High CPU detected on i-0a616afbc0dbb26dd: 90.00% (threshold 70.00%)",
+    "meta": {
+      "cpu_latest_percent": 90.0
+    }
+  },
+  {
+    "ts": "2026-04-20T06:37:38Z",
+    "kind": "high_cpu",
+    "message": "High CPU detected on i-0a616afbc0dbb26dd: 72.00% (threshold 70.00%)",
+    "meta": {
+      "cpu_latest_percent": 72.0
+    }
+  },
+  {
+    "ts": "2026-04-20T06:42:42Z",
+    "kind": "high_cpu",
+    "message": "High CPU detected on i-0a616afbc0dbb26dd: 72.00% (threshold 70.00%)",
+    "meta": {
+      "cpu_latest_percent": 72.0
+    }
+  }
+]

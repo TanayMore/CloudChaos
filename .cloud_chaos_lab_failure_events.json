@@ -1,0 +1,135 @@
+[
+  {
+    "ts": "2026-04-20T05:11:43Z",
+    "kind": "manual_stop",
+    "message": "Failure triggered: stop requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 1
+  },
+  {
+    "ts": "2026-04-20T05:12:18Z",
+    "kind": "manual_stop",
+    "message": "Failure triggered: stop requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 2
+  },
+  {
+    "ts": "2026-04-20T05:13:56Z",
+    "kind": "manual_stop",
+    "message": "Failure triggered: stop requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 3
+  },
+  {
+    "ts": "2026-04-20T05:13:57Z",
+    "kind": "manual_reboot",
+    "message": "Failure triggered: reboot requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 4
+  },
+  {
+    "ts": "2026-04-20T05:14:05Z",
+    "kind": "chaos_reboot",
+    "message": "Failure triggered: chaos reboot requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 5
+  },
+  {
+    "ts": "2026-04-20T05:14:22Z",
+    "kind": "chaos_stop",
+    "message": "Failure triggered: chaos stop requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 6
+  },
+  {
+    "ts": "2026-04-20T05:14:24Z",
+    "kind": "chaos_reboot",
+    "message": "Failure triggered: chaos reboot requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 7
+  },
+  {
+    "ts": "2026-04-20T05:14:25Z",
+    "kind": "chaos_stop",
+    "message": "Failure triggered: chaos stop requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 8
+  },
+  {
+    "ts": "2026-04-20T05:23:56Z",
+    "kind": "chaos_reboot",
+    "message": "Failure triggered: chaos reboot requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 9
+  },
+  {
+    "ts": "2026-04-20T05:23:59Z",
+    "kind": "chaos_stop",
+    "message": "Failure triggered: chaos stop requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 10
+  },
+  {
+    "ts": "2026-04-20T05:24:02Z",
+    "kind": "chaos_stop",
+    "message": "Failure triggered: chaos stop requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 11
+  },
+  {
+    "ts": "2026-04-20T05:24:03Z",
+    "kind": "chaos_stop",
+    "message": "Failure triggered: chaos stop requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 12
+  },
+  {
+    "ts": "2026-04-20T05:24:04Z",
+    "kind": "chaos_reboot",
+    "message": "Failure triggered: chaos reboot requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 13
+  },
+  {
+    "ts": "2026-04-20T05:24:06Z",
+    "kind": "chaos_reboot",
+    "message": "Failure triggered: chaos reboot requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 14
+  },
+  {
+    "ts": "2026-04-20T05:24:13Z",
+    "kind": "chaos_reboot",
+    "message": "Failure triggered: chaos reboot requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 15
+  },
+  {
+    "ts": "2026-04-20T05:24:18Z",
+    "kind": "manual_stop",
+    "message": "Failure triggered: stop requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 16
+  },
+  {
+    "ts": "2026-04-20T05:24:19Z",
+    "kind": "manual_reboot",
+    "message": "Failure triggered: reboot requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 17
+  },
+  {
+    "ts": "2026-04-20T05:24:23Z",
+    "kind": "manual_stop",
+    "message": "Failure triggered: stop requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 18
+  },
+  {
+    "ts": "2026-04-20T05:24:24Z",
+    "kind": "manual_reboot",
+    "message": "Failure triggered: reboot requested for instance i-0a616afbc0dbb26dd.",
+    "meta": null,
+    "attempt_id": 19
+  }
+]

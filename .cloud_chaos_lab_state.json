@@ -1,0 +1,18 @@
+{
+  "instance_id": "i-0a616afbc0dbb26dd",
+  "display_instance_id": "i-0a616afbc0dbb26dd",
+  "aws_region": "us-east-1",
+  "sns_topic_name": "cloud-chaos-lab-alerts",
+  "sns_topic_arn": null,
+  "last_instance_state": "running",
+  "last_alert_times": {
+    "high_cpu_70": 1776667362.0937767,
+    "instance_stopped": 1776662642.4007974,
+    "status_checks_failed": 1776662642.4041028
+  },
+  "recovery_attempt_counter": 19,
+  "recovery_timer_attempt_id": 19,
+  "recovery_timer_start_ts": 1776662664.8443806,
+  "recovery_timer_end_ts": 1776662666.4206157,
+  "last_recovery_time_seconds": 2
+}
